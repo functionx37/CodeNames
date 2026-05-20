@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "lib": [
+      "ES2021"
+    ],
+    "rootDir": "..",
+    "outDir": "../dist",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "./**/*.ts",
+    "../shared/**/*.ts"
+  ]
+}

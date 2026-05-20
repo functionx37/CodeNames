@@ -1,0 +1,21 @@
+node_modules/
+dist/
+client/dist/
+server/logs/
+*.log
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Build caches
+.vite/
+coverage/
+*.tsbuildinfo
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
