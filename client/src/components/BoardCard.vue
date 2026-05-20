@@ -6,6 +6,7 @@ const props = defineProps<{
   card: CardView;
   selectable: boolean;
   selected: boolean;
+  isCaptain: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -24,17 +25,19 @@ watch(() => props.card.word, (newWord, oldWord) => {
 });
 
 const cardClass = computed(() => {
-  if (props.card.revealed && props.card.color === "red") {
-    return "revealed-red";
-  }
-  if (props.card.revealed && props.card.color === "blue") {
-    return "revealed-blue";
-  }
-  if (props.card.revealed && props.card.color === "black") {
-    return "revealed-black";
-  }
-  if (props.card.revealed && props.card.color === "white") {
-    return "revealed-white";
+  if (props.card.revealed || props.isCaptain) {
+    if (props.card.color === "red") {
+      return "revealed-red";
+    }
+    if (props.card.color === "blue") {
+      return "revealed-blue";
+    }
+    if (props.card.color === "black") {
+      return "revealed-black";
+    }
+    if (props.card.color === "white") {
+      return "revealed-white";
+    }
   }
   if (props.card.locked) {
     return "locked";
@@ -46,7 +49,7 @@ const cardClass = computed(() => {
 <template>
   <button
     class="board-card"
-    :class="[cardClass, { selectable, selected, 'flip-anim': isFlipping }]"
+    :class="[cardClass, { selectable, selected, 'flip-anim': isFlipping, 'is-captain': isCaptain }]"
     :disabled="!selectable"
     @click="emit('select', card.id)"
   >

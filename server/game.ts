@@ -465,12 +465,37 @@ export class GameService {
     const { room, player } = membership;
     const game = room.game;
     if (!game || room.status !== "draft" || !game.draft) {
-      return this.fail("当前不是翻面阶段");
+      return this.fail("当前不是换词阶段");
     }
 
     const currentSide = game.draft.currentCaptainSide;
     if (player.id !== game.captains[currentSide]) {
-      return this.fail("只有当前队长可以翻面");
+      return this.fail("只有当前队长可以换词");
+    }
+
+    if (cardId === "skip") {
+      game.draft.replacementsUsed += 1;
+      
+      if (game.draft.currentCaptainSide === game.secondTeam) {
+        game.draft.currentCaptainSide = game.firstTeam!;
+      } else {
+        game.draft.currentCaptainSide = game.secondTeam!;
+        game.draft.round += 1;
+      }
+
+      this.logEvent(room, player.id, "draft.skipped", {
+        round: game.draft.round,
+        skippedBy: player.nickname
+      });
+
+      if (game.draft.replacementsUsed >= game.draft.totalRounds * 2) {
+        this.assignColors(room);
+      }
+
+      this.touchRoom(room);
+      this.broadcastRoom(room);
+      this.broadcastLobby();
+      return { ok: true };
     }
 
     const card = game.cards.find((value) => value.id === cardId);

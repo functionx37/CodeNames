@@ -212,6 +212,14 @@ async function onReplaceDraftCard(): Promise<void> {
   selectedCardId.value = null;
 }
 
+async function onSkipDraftReplace(): Promise<void> {
+  if (!room.value) {
+    return;
+  }
+  await replaceDraftCard(room.value.id, "skip");
+  selectedCardId.value = null;
+}
+
 async function onConfirmGuess(): Promise<void> {
   if (!room.value || !selectedCardId.value) {
     return;
@@ -294,9 +302,9 @@ async function copyInvite(): Promise<void> {
             <li v-for="player in redPlayers" :key="player.id">
                 <div class="name-wrapper-container">
                   <div class="name-wrapper">
-                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
                     <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
                     <span>{{ playerLabel(player) }}</span>
+                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-left: 4px; margin-right: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
                   </div>
                 </div>
                 <span class="status-pill" :class="{ ready: player.ready }">{{ player.ready ? '已准备' : '未准备' }}</span>
@@ -339,9 +347,9 @@ async function copyInvite(): Promise<void> {
             <li v-for="player in bluePlayers" :key="player.id">
                 <div class="name-wrapper-container">
                   <div class="name-wrapper">
-                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
                     <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
                     <span>{{ playerLabel(player) }}</span>
+                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-left: 4px; margin-right: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
                   </div>
                 </div>
                 <span class="status-pill" :class="{ ready: player.ready }">{{ player.ready ? '已准备' : '未准备' }}</span>
@@ -367,9 +375,9 @@ async function copyInvite(): Promise<void> {
               <li v-for="player in redPlayers" :key="player.id">
                 <div class="name-wrapper-container">
                   <div class="name-wrapper">
-                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
                     <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
                     <span>{{ playerLabel(player) }}</span>
+                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-left: 4px; margin-right: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
                   </div>
                 </div>
                 <span class="status-pill" :class="{ offline: !player.connected }">{{ player.connected ? "在线" : "离线" }}</span>
@@ -382,9 +390,9 @@ async function copyInvite(): Promise<void> {
               <li v-for="player in bluePlayers" :key="player.id">
                 <div class="name-wrapper-container">
                   <div class="name-wrapper">
-                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
                     <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
                     <span>{{ playerLabel(player) }}</span>
+                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-left: 4px; margin-right: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
                   </div>
                 </div>
                 <span class="status-pill" :class="{ offline: !player.connected }">{{ player.connected ? "在线" : "离线" }}</span>
@@ -422,12 +430,14 @@ async function copyInvite(): Promise<void> {
             :card="card"
             :selectable="cardSelectable(card)"
             :selected="selectedCardId === card.id"
+            :isCaptain="Boolean(self?.isCaptain && room.status === 'playing')"
             @select="onCardSelect"
           />
         </div>
 
         <div v-if="room.status === 'draft' && isCurrentCaptain" class="inline-actions">
           <button class="primary" :disabled="!selectedCardId" @click="onReplaceDraftCard">更换当前词语</button>
+          <button class="secondary" @click="onSkipDraftReplace">跳过并交给对方</button>
         </div>
 
         <div v-if="game?.turnStage === 'members_guess' && canSelectCards" class="inline-actions">

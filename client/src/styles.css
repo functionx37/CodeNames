@@ -106,6 +106,20 @@ code {
   border: 4px solid transparent;
   border-radius: 28px;
   transition: all 0.2s ease;
+  position: relative;
+}
+
+.team-card::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 4px solid transparent;
+  border-radius: 36px;
+  pointer-events: none;
+  transition: all 0.2s ease;
 }
 
 .team-card:hover {
@@ -117,10 +131,16 @@ code {
   border-color: var(--red);
   box-shadow: 0 0 15px 5px rgba(239, 68, 68, 0.4), inset 0 0 10px rgba(239, 68, 68, 0.2);
 }
+.joined-team-red::after {
+  border-color: rgba(239, 68, 68, 0.6);
+}
 
 .joined-team-blue {
   border-color: var(--blue);
   box-shadow: 0 0 15px 5px rgba(59, 130, 246, 0.4), inset 0 0 10px rgba(59, 130, 246, 0.2);
+}
+.joined-team-blue::after {
+  border-color: rgba(59, 130, 246, 0.6);
 }
 
 .spectator-section {
@@ -584,8 +604,9 @@ h2 {
 }
 
 .board-card .word {
-  font-size: 1.02rem;
+  font-size: 1.5rem;
   font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .board-card.hidden {
@@ -614,6 +635,7 @@ h2 {
 
 .board-card.revealed-white {
   background: #dad4cb;
+  color: var(--ink);
 }
 
 .board-card.selectable {
