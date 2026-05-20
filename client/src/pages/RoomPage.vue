@@ -26,8 +26,8 @@ const router = useRouter();
 const roomId = computed(() => String(route.params.roomId || "").toUpperCase());
 const currentRoomId = ref<string>(roomId.value);
 const hintWord = ref("");
-const hintNumber = ref(1);
-const chatText = ref("");
+const customNumber = ref<number | "">("");
+const selectedNumber = ref<number | null>(null);
 const selectedCardId = ref<string | null>(null);
 
 onMounted(async () => {
@@ -140,8 +140,19 @@ function stageText(): string {
     return `<span class="${teamClass}">换词第 ${game.value.draft.round} / ${game.value.draft.totalRounds} 轮，当前 ${teamName} 队长操作</span>`;
   }
   if (room.value.status === "playing") {
-    const turn = game.value.currentTurn === "red" ? "红队" : "蓝队";
-    return `${turn} · ${game.value.turnStage}`;
+    const currentTurn = game.value.currentTurn;
+    if (!currentTurn) return "";
+    const turn = currentTurn === "red" ? "红队" : "蓝队";
+    const teamClass = currentTurn === "red" ? "team-red" : "team-blue";
+    let stageName = game.value.turnStage;
+    if (stageName === "captain_hint") {
+      stageName = "提示阶段";
+    } else if (stageName === "members_guess") {
+      stageName = "猜词阶段";
+    } else if (stageName === "continue_vote") {
+      stageName = "决定是否继续";
+    }
+    return `<span class="${teamClass}">${turn} · ${stageName}</span>`;
   }
   if (room.value.status === "ended") {
     return game.value.winnerReason || "已结束";
@@ -235,26 +246,59 @@ async function onClearGuess(): Promise<void> {
   await previewGuess(room.value.id, null);
 }
 
-async function onSendHintWord(): Promise<void> {
-  if (!room.value || !hintWord.value.trim()) {
-    return;
-  }
-  await submitHintWord(room.value.id, hintWord.value.trim());
+function selectNumber(n: number) {
+  selectedNumber.value = n;
+  customNumber.value = "";
 }
 
-async function onSendHintNumber(): Promise<void> {
-  if (!room.value) {
+async function onConfirmHint() {
+  if (!room.value || !game.value) return;
+  const word = hintWord.value.trim();
+  if (!word) {
+    appState.lastError = "请输入提示词";
     return;
   }
-  await submitHintNumber(room.value.id, hintNumber.value);
-}
-
-async function onSendChat(): Promise<void> {
-  if (!room.value || !chatText.value.trim()) {
+  
+  // local overlap check
+  const boardWords = game.value.cards.map(c => c.word);
+  const letters = new Set(Array.from(word));
+  let hasOverlap = false;
+  for (const bw of boardWords) {
+    const bwLetters = new Set(Array.from(bw));
+    let overlap = false;
+    for (const l of letters) {
+      if (bwLetters.has(l)) {
+        overlap = true;
+        break;
+      }
+    }
+    if (overlap) {
+      hasOverlap = true;
+      break;
+    }
+  }
+  
+  if (hasOverlap) {
+    hintWord.value = "*".repeat(word.length);
+    appState.lastError = "提示词不能包含面板词语的字符";
     return;
   }
-  await sendChat(room.value.id, chatText.value.trim());
-  chatText.value = "";
+  
+  const num = selectedNumber.value || (typeof customNumber.value === 'number' ? customNumber.value : 0);
+  if (num < 1 || num > 25 || !Number.isInteger(num)) {
+    appState.lastError = "请输入有效的数字 (1-25)";
+    return;
+  }
+  
+  appState.lastError = "";
+  const res1 = await submitHintWord(room.value.id, word);
+  if (!res1.ok) return;
+  const res2 = await submitHintNumber(room.value.id, num);
+  if (!res2.ok) return;
+  
+  hintWord.value = "";
+  selectedNumber.value = null;
+  customNumber.value = "";
 }
 
 async function onVote(vote: ContinueVote): Promise<void> {
@@ -361,59 +405,99 @@ async function copyInvite(): Promise<void> {
 
     <section v-else class="grid-3">
       <aside class="panel">
-        <div class="section-head">
-          <h2>玩家</h2>
-          <span>{{ players.length }} 人</span>
-        </div>
+        <template v-if="room.status !== 'playing'">
+          <div class="section-head">
+            <h2>玩家</h2>
+            <span>{{ players.length }} 人</span>
+          </div>
 
-        <button v-if="room.status === 'ended'" class="primary wide" @click="onRematch">再来一局</button>
+          <button v-if="room.status === 'ended'" class="primary wide" @click="onRematch">再来一局</button>
 
-        <div class="team-columns">
-          <div>
-            <h3 class="team-red" style="text-align:center; margin-bottom: 0.5rem;">红方</h3>
-            <ul class="player-list large-list red-list">
-              <li v-for="player in redPlayers" :key="player.id">
-                <div class="name-wrapper-container">
-                  <div class="name-wrapper">
-                    <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
-                    <span>{{ playerLabel(player) }}</span>
-                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-left: 4px; margin-right: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
+          <div class="team-columns">
+            <div>
+              <h3 class="team-red" style="text-align:center; margin-bottom: 0.5rem;">红方</h3>
+              <ul class="player-list large-list red-list">
+                <li v-for="player in redPlayers" :key="player.id">
+                  <div class="name-wrapper-container">
+                    <div class="name-wrapper">
+                      <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
+                      <span>{{ playerLabel(player) }}</span>
+                      <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-left: 4px; margin-right: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
+                    </div>
                   </div>
-                </div>
-                <span class="status-pill" :class="{ offline: !player.connected }">{{ player.connected ? "在线" : "离线" }}</span>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 class="team-blue" style="text-align:center; margin-bottom: 0.5rem;">蓝方</h3>
-            <ul class="player-list large-list blue-list">
-              <li v-for="player in bluePlayers" :key="player.id">
-                <div class="name-wrapper-container">
-                  <div class="name-wrapper">
-                    <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
-                    <span>{{ playerLabel(player) }}</span>
-                    <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-left: 4px; margin-right: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
+                  <span class="status-pill" :class="{ offline: !player.connected }">{{ player.connected ? "在线" : "离线" }}</span>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 class="team-blue" style="text-align:center; margin-bottom: 0.5rem;">蓝方</h3>
+              <ul class="player-list large-list blue-list">
+                <li v-for="player in bluePlayers" :key="player.id">
+                  <div class="name-wrapper-container">
+                    <div class="name-wrapper">
+                      <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
+                      <span>{{ playerLabel(player) }}</span>
+                      <svg v-if="player.isCaptain" class="me-indicator" style="color: #fbbf24; opacity: 1; margin-left: 4px; margin-right: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M2 19h20v2H2v-2zm2-14l3 5 5-7 5 7 3-5v10H4V5z"/></svg>
+                    </div>
                   </div>
-                </div>
-                <span class="status-pill" :class="{ offline: !player.connected }">{{ player.connected ? "在线" : "离线" }}</span>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 style="text-align:center; margin-bottom: 0.5rem;">旁观</h3>
-            <ul class="player-list spectator-list">
-              <li v-for="player in spectatorPlayers" :key="player.id">
-                <div class="name-wrapper-container">
-                  <div class="name-wrapper">
-                    <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
-                    <span>{{ player.nickname }}</span>
+                  <span class="status-pill" :class="{ offline: !player.connected }">{{ player.connected ? "在线" : "离线" }}</span>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 style="text-align:center; margin-bottom: 0.5rem;">旁观</h3>
+              <ul class="player-list spectator-list">
+                <li v-for="player in spectatorPlayers" :key="player.id">
+                  <div class="name-wrapper-container">
+                    <div class="name-wrapper">
+                      <svg v-if="player.id === self?.id" class="me-indicator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
+                      <span>{{ player.nickname }}</span>
+                    </div>
                   </div>
-                </div>
-                <span class="status-pill" :class="{ offline: !player.connected }">{{ player.connected ? "在线" : "离线" }}</span>
-              </li>
-            </ul>
+                  <span class="status-pill" :class="{ offline: !player.connected }">{{ player.connected ? "在线" : "离线" }}</span>
+                </li>
+              </ul>
+            </div>
           </div>
-        </div>
+        </template>
+        <template v-else>
+          <div class="section-head">
+            <h2>队伍提示</h2>
+          </div>
+          
+          <div v-if="game?.turnStage === 'captain_hint' && isCurrentCaptain" class="hint-form">
+            <label class="field">
+              <span>提示词</span>
+              <input v-model="hintWord" maxlength="20" placeholder="请输入一个词语" />
+            </label>
+            <div class="field">
+              <span>提示数字</span>
+              <div class="number-grid">
+                <button v-for="n in 9" :key="n" 
+                        class="number-btn" :class="{ active: selectedNumber === n }"
+                        @click="selectNumber(n)">{{ n }}</button>
+                <input type="number" min="10" max="25" class="number-input" 
+                       v-model="customNumber" 
+                       @focus="selectedNumber = null"
+                       placeholder="自定义" />
+              </div>
+            </div>
+            <button class="primary wide" style="margin-top: 1rem;" @click="onConfirmHint">发送提示</button>
+            <p v-if="appState.lastError" class="error-line" style="margin-top: 0.5rem;">{{ appState.lastError }}</p>
+          </div>
+          
+          <div v-else-if="game?.turnStage === 'captain_hint' && !isCurrentCaptain" class="hint-waiting">
+            <p class="muted" style="text-align: center; padding: 2rem 0;">等待当前队长给出提示...</p>
+          </div>
+          
+          <div v-else class="hint-display">
+            <p style="font-size: 1.1rem; text-align: center; padding: 1.5rem 0; background: rgba(22,22,22,0.03); border-radius: 12px;">
+              当前提示：
+              <strong style="font-size: 1.3rem;">{{ game?.hint.word }}</strong>
+              <span> / {{ game?.hint.number }}</span>
+            </p>
+          </div>
+        </template>
       </aside>
 
       <section class="panel board-panel" style="grid-column: span 2;">

@@ -711,7 +711,33 @@ h2 {
 
 .hint-form {
   display: grid;
-  gap: 0.7rem;
+  gap: 1rem;
+}
+
+.number-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+}
+
+.number-btn {
+  padding: 0.5rem 0;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.number-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.number-input {
+  grid-column: span 5;
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
 }
 
 .chat-list {
