@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { useRoute } from "vue-router";
 import { appState, updateLocalNickname, updateNickname } from "../lib/api";
 
+const route = useRoute();
 const showNameDialog = ref(false);
 const newNickname = ref("");
 const isForcePrompt = ref(false);
@@ -35,7 +37,7 @@ async function confirmName() {
 </script>
 
 <template>
-  <div class="global-user-profile">
+  <div class="global-user-profile" :class="{ 'hide-in-room-mobile': route.path.startsWith('/room/') }">
     <button class="profile-trigger" @click="openDialog">
       <div class="avatar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -64,6 +66,30 @@ async function confirmName() {
   top: 1rem;
   right: 1.5rem;
   z-index: 100;
+}
+
+@media (max-width: 780px) {
+  .global-user-profile.hide-in-room-mobile {
+    display: none !important;
+  }
+  .global-user-profile {
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+  .profile-trigger {
+    padding: 0.2rem 0.5rem 0.2rem 0.2rem;
+  }
+  .nickname {
+    font-size: 0.8rem;
+  }
+  .avatar {
+    width: 24px;
+    height: 24px;
+  }
+  .avatar svg {
+    width: 14px;
+    height: 14px;
+  }
 }
 
 .profile-trigger {

@@ -1,127 +1,133 @@
 # Codenames Web
 
-一个轻量级的网页多人版 Codenames，前端使用 Vue 3，后端使用 Node.js + Express + Socket.IO，默认部署路径为 `/codenames`。
-
 ## 环境要求
 
-- Node.js 18+
-- npm 9+
+- 本地构建机
+  - Node.js 18+
+  - npm 9+
+  - rsync
+  - ssh
+- 服务器
+  - Node.js 18+
+  - nginx
+  - rsync
+  - sudo
 
-## 项目结构
+## 项目架构
 
-- `client/`：Vue 前端
-- `server/`：Express + Socket.IO 后端
-- `shared/`：前后端共享类型
-- `server/data/vocabulary.json`：服务端实际使用的词库
-- `deploy/nginx-codenames.conf`：Nginx 反代示例
+- `client/`
+  - Vue 3 前端工程，生产构建后输出到 `dist/client/`
+- `server/`
+  - Express + Socket.IO 服务端
+  - 词库文件位于 `server/data/vocabulary.json`
+  - 运行日志写入 `server/logs/`
+- `shared/`
+  - 前后端共享类型
+- `dist/`
+  - 本地构建产物
+  - `dist/client/` 为前端静态资源
+  - `dist/server/` 为服务端编译输出
+- `deploy/`
+  - `codenames-publish.sh`：本地构建并上传到服务器
+  - `codenames-deploy.sh`：服务器启动、停止和 nginx 配置安装
+  - `nginx-codenames.conf`：`/codenames` 路径的 nginx 片段
 
-## 本地开发
+部署模式：
 
-1. 安装依赖
+- 本地机器负责构建前端和后端
+- 本地机器将发布包上传到服务器 `/var/www/codenames`
+- nginx 直接托管 `/var/www/codenames/dist/client`
+- Node 服务运行在 `3001` 端口
+- nginx 将 `/codenames/api/` 和 `/codenames/socket.io/` 反代到 `127.0.0.1:3001`
 
-```bash
-npm install
-```
+## 部署方法
 
-2. 启动前后端开发模式
+### 1. 本地打包并上传
 
-```bash
-npm run dev
-```
-
-默认会启动两个进程：
-
-- 前端 Vite 开发服务器
-- 后端 Node 服务，默认端口 `3000`
-
-启动后访问：
-
-- 前端开发页：通常是 Vite 输出的本地地址
-- 实际联机路径：`http://localhost:3000/codenames`
-
-说明：
-
-- 前端路由基路径固定为 `/codenames/`
-- Socket.IO 路径固定为 `/codenames/socket.io`
-- Vite 已配置代理 `/codenames/socket.io` 到本地 `3000` 端口
-
-## 生产构建
-
-1. 构建前端和后端
-
-```bash
-npm run build
-```
-
-2. 启动生产服务
+仅打包到本地发布目录：
 
 ```bash
-npm run start
+./deploy/codenames-publish.sh stage
 ```
 
-默认监听：
-
-- `PORT=3000`
-- `BASE_PATH=/codenames`
-
-也可以显式指定：
+打包并上传到服务器：
 
 ```bash
-PORT=3000 BASE_PATH=/codenames npm run start
+./deploy/codenames-publish.sh push <user@host>
 ```
 
-构建产物：
+打包、上传并在服务器重启服务：
 
-- 前端静态文件：`dist/client/`
-- 后端编译输出：`dist/server/`
+```bash
+./deploy/codenames-publish.sh push-and-restart <user@host>
+```
 
-## Nginx 部署
+默认上传目录：
 
-Node 服务跑在本机 `3000` 端口时，可以在 Nginx 里挂一个 `/codenames/` 反代。
+```bash
+/var/www/codenames
+```
 
-示例见：
+### 2. 服务器安装 nginx 配置
 
-- [deploy/nginx-codenames.conf](/home/leory/codes/CodeNames/deploy/nginx-codenames.conf)
+进入发布目录：
 
-核心配置如下：
+```bash
+cd /var/www/codenames
+```
+
+安装 nginx 片段：
+
+```bash
+./deploy/codenames-deploy.sh nginx-install
+```
+
+然后把下面这行加到你现有 nginx 的 `server` 块中：
 
 ```nginx
-location /codenames/ {
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_pass http://127.0.0.1:3000;
-}
+include /etc/nginx/snippets/codenames.conf;
 ```
 
-## 当前已实现内容
-
-- 公开大厅
-- 创建房间、加入房间
-- 昵称本地保存
-- 红蓝方/旁观切换
-- 等待阶段准备与开局
-- draft 翻面阶段
-- 自动分配红蓝/黑/白词
-- 队长提示词与数字
-- 队员试选、确认、继续/放弃投票
-- 公屏聊天
-- 内存房间状态同步
-- 服务器日志按房间落盘
-
-## 当前限制
-
-- 房间状态只保存在内存中，服务重启后房间会丢失
-- 日志保存在 `server/logs/`
-- 当前仓库虽然已经有代码和依赖，但我还没有完成一次最终的 `npm run build` 验证；如果启动时报编译或类型错误，需要继续修一轮
-
-## 常用命令
+最后检查并重载 nginx：
 
 ```bash
-npm run dev
-npm run build
-npm run start
+sudo nginx -t
+sudo systemctl reload nginx
 ```
+
+### 3. 服务器启动服务
+
+启动：
+
+```bash
+./deploy/codenames-deploy.sh run
+```
+
+停止：
+
+```bash
+./deploy/codenames-deploy.sh stop
+```
+
+重启：
+
+```bash
+./deploy/codenames-deploy.sh restart
+```
+
+查看状态：
+
+```bash
+./deploy/codenames-deploy.sh status
+```
+
+查看日志：
+
+```bash
+./deploy/codenames-deploy.sh logs
+```
+
+默认服务参数：
+
+- 访问路径：`/codenames`
+- Node 端口：`3001`

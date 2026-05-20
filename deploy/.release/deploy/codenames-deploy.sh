@@ -11,7 +11,7 @@ SERVER_ENTRY="$PROJECT_DIR/dist/server/index.js"
 VOCABULARY_FILE="$PROJECT_DIR/server/data/vocabulary.json"
 CLIENT_INDEX_FILE="$PROJECT_DIR/dist/client/index.html"
 NGINX_CONF_SOURCE="$PROJECT_DIR/deploy/nginx-codenames.conf"
-NGINX_CONF_TARGET="${NGINX_CONF_TARGET:-/etc/nginx/snippets/codenames.conf}"
+NGINX_CONF_TARGET="${NGINX_CONF_TARGET:-/etc/nginx/conf.d/codenames.conf}"
 PORT=3001
 BASE_PATH="/codenames"
 
@@ -21,12 +21,12 @@ Usage: $(basename "$0") {run|stop|restart|status|logs|nginx-print|nginx-install}
 
 Commands:
   run           Start the already uploaded service
-  stop          Stop the running service
-  restart       Restart the service
-  status        Show whether the service is running
-  logs          Tail the runtime log
+  stop     Stop the running service
+  restart  Restart the service
+  status   Show whether the service is running
+  logs     Tail the runtime log
   nginx-print    Print the bundled nginx config
-  nginx-install  Install nginx snippet for manual include
+  nginx-install  Install nginx config and reload nginx
 EOF
 }
 
@@ -119,6 +119,7 @@ run_as_root() {
 
 install_nginx_config() {
     require_command install
+    require_command nginx
 
     if [[ ! -f "$NGINX_CONF_SOURCE" ]]; then
         echo "Missing nginx config: $NGINX_CONF_SOURCE" >&2
@@ -127,11 +128,18 @@ install_nginx_config() {
 
     run_as_root mkdir -p "$(dirname "$NGINX_CONF_TARGET")"
     run_as_root install -m 644 "$NGINX_CONF_SOURCE" "$NGINX_CONF_TARGET"
+    run_as_root nginx -t
 
-    echo "Nginx snippet installed: $NGINX_CONF_TARGET"
-    echo "Add this line inside your existing nginx server block:"
-    echo "  include $NGINX_CONF_TARGET;"
-    echo "Then run: sudo nginx -t && sudo systemctl reload nginx"
+    if command -v systemctl >/dev/null 2>&1; then
+        run_as_root systemctl reload nginx
+    elif command -v service >/dev/null 2>&1; then
+        run_as_root service nginx reload
+    else
+        echo "Nginx config installed. Reload nginx manually." >&2
+        return
+    fi
+
+    echo "Nginx config installed: $NGINX_CONF_TARGET"
 }
 
 start_service() {
