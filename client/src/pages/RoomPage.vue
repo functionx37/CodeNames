@@ -110,7 +110,23 @@ const onlineGuessers = computed(() => {
 });
 
 const canSelectCards = computed(() => Boolean(game.value && game.value.turnStage === "members_guess" && isCurrentMember.value));
-const canVoteContinue = computed(() => Boolean(game.value && game.value.turnStage === "continue_vote" && isCurrentMember.value));
+
+const canConfirmGuess = computed(() => {
+  if (!game.value || !isCurrentMember.value) return false;
+  if (onlineGuessers.value.length === 0) return false;
+  
+  if (selectedCardId.value === "skip") {
+    // skip button allows confirmation if all online guessers selected skip
+    return game.value.guess.skipPreviewPlayerIds && game.value.guess.skipPreviewPlayerIds.length === onlineGuessers.value.length;
+  }
+  
+  if (!selectedCardId.value) return false;
+  
+  const card = game.value.cards.find(c => c.id === selectedCardId.value);
+  if (!card) return false;
+  
+  return card.previewPlayerIds.length === onlineGuessers.value.length;
+});
 
 function playerLabel(player: PlayerSummary): string {
   return player.nickname;
@@ -209,9 +225,27 @@ async function onCardSelect(cardId: string): Promise<void> {
     }
     return;
   }
-  selectedCardId.value = cardId;
   if (canSelectCards.value) {
-    await previewGuess(room.value.id, cardId);
+    if (selectedCardId.value === cardId) {
+      selectedCardId.value = null;
+      await previewGuess(room.value.id, null);
+    } else {
+      selectedCardId.value = cardId;
+      await previewGuess(room.value.id, cardId);
+    }
+  }
+}
+
+async function onSkipGuess(): Promise<void> {
+  if (!room.value || !game.value) return;
+  if (canSelectCards.value) {
+    if (selectedCardId.value === "skip") {
+      selectedCardId.value = null;
+      await previewGuess(room.value.id, null);
+    } else {
+      selectedCardId.value = "skip";
+      await previewGuess(room.value.id, "skip");
+    }
   }
 }
 
@@ -236,14 +270,12 @@ async function onConfirmGuess(): Promise<void> {
     return;
   }
   await confirmGuess(room.value.id, selectedCardId.value);
-}
-
-async function onClearGuess(): Promise<void> {
-  if (!room.value) {
-    return;
+  if (selectedCardId.value === "skip") {
+    selectedCardId.value = null;
+    await previewGuess(room.value.id, null);
+  } else {
+    selectedCardId.value = null;
   }
-  selectedCardId.value = null;
-  await previewGuess(room.value.id, null);
 }
 
 function selectNumber(n: number) {
@@ -279,7 +311,7 @@ async function onConfirmHint() {
   }
   
   if (hasOverlap) {
-    hintWord.value = "*".repeat(word.length);
+    hintWord.value = "";
     appState.lastError = "提示词不能包含面板词语的字符";
     return;
   }
@@ -301,12 +333,7 @@ async function onConfirmHint() {
   customNumber.value = "";
 }
 
-async function onVote(vote: ContinueVote): Promise<void> {
-  if (!room.value) {
-    return;
-  }
-  await voteTurn(room.value.id, vote);
-}
+
 
 async function onRematch(): Promise<void> {
   if (!room.value) {
@@ -473,10 +500,10 @@ async function copyInvite(): Promise<void> {
             <div class="field">
               <span>提示数字</span>
               <div class="number-grid">
-                <button v-for="n in 9" :key="n" 
+                <button v-for="n in 5" :key="n" 
                         class="number-btn" :class="{ active: selectedNumber === n }"
                         @click="selectNumber(n)">{{ n }}</button>
-                <input type="number" min="10" max="25" class="number-input" 
+                <input type="number" min="6" max="25" class="number-input" 
                        v-model="customNumber" 
                        @focus="selectedNumber = null"
                        placeholder="自定义" />
@@ -515,6 +542,7 @@ async function copyInvite(): Promise<void> {
             :selectable="cardSelectable(card)"
             :selected="selectedCardId === card.id"
             :isCaptain="Boolean(self?.isCaptain && room.status === 'playing')"
+            :currentTurn="game?.currentTurn"
             @select="onCardSelect"
           />
         </div>
@@ -525,13 +553,25 @@ async function copyInvite(): Promise<void> {
         </div>
 
         <div v-if="game?.turnStage === 'members_guess' && canSelectCards" class="inline-actions">
-          <button class="secondary" :disabled="!selectedCardId" @click="onConfirmGuess">确认当前选择</button>
-          <button class="secondary" @click="onClearGuess">清除试选</button>
-        </div>
-
-        <div v-if="game?.turnStage === 'continue_vote' && canVoteContinue" class="inline-actions">
-          <button class="primary" @click="onVote('continue')">继续猜</button>
-          <button class="secondary" @click="onVote('stop')">放弃回合</button>
+          <button class="primary" :disabled="!canConfirmGuess" @click="onConfirmGuess">
+            确认{{ selectedCardId === 'skip' ? '跳过' : '选择' }}
+          </button>
+          <button 
+            class="secondary" 
+            style="position: relative;"
+            :class="{
+              [`preview-border-${game?.currentTurn}`]: game?.guess.skipPreviewNicknames?.length || selectedCardId === 'skip',
+              'selected-skip': selectedCardId === 'skip'
+            }" 
+            @click="onSkipGuess"
+          >
+            跳过回合
+            <div v-if="game?.guess.skipPreviewNicknames?.length" class="preview-tags">
+              <span v-for="name in game.guess.skipPreviewNicknames" :key="name" class="preview-tag" :class="`tag-${game.currentTurn}`">
+                {{ name }}
+              </span>
+            </div>
+          </button>
         </div>
       </section>
 

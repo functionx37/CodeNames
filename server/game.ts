@@ -707,6 +707,15 @@ export class GameService {
       return { ok: true };
     }
 
+    if (cardId === "skip") {
+      game.previewSelections[player.id] = "skip";
+      delete game.confirmedSelections[player.id];
+      this.rebuildCardSelections(room);
+      this.touchRoom(room);
+      this.broadcastRoom(room);
+      return { ok: true };
+    }
+
     const card = game.cards.find((value) => value.id === cardId);
     if (!card || card.revealed) {
       return this.fail("这张卡不能被选择");
@@ -734,35 +743,30 @@ export class GameService {
       return this.fail("只有当前队队员可以确认");
     }
 
-    const card = game.cards.find((value) => value.id === cardId);
-    if (!card || card.revealed) {
-      return this.fail("这张卡不能被确认");
-    }
-
-    game.previewSelections[player.id] = cardId;
-    game.confirmedSelections[player.id] = cardId;
-    this.rebuildCardSelections(room);
-
     const activeMembers = this.currentGuessers(room);
     if (activeMembers.length === 0) {
       return this.fail("当前没有在线队员可确认");
     }
 
-    const confirmed = unique(
-      activeMembers
-        .map((member) => game.confirmedSelections[member.id])
-        .filter((value): value is string => Boolean(value))
-    );
-
-    if (confirmed.length === 1 && activeMembers.every((member) => game.confirmedSelections[member.id] === confirmed[0])) {
-      this.revealCard(room, confirmed[0]);
-    } else {
-      game.guess.confirmedCardId = null;
-      game.guess.confirmationPlayerIds = activeMembers
-        .filter((member) => Boolean(game.confirmedSelections[member.id]))
-        .map((member) => member.id);
+    const allSelectedSame = activeMembers.every(m => game.previewSelections[m.id] === cardId);
+    if (!allSelectedSame) {
+      return this.fail("需要所有队员选择相同才能确认");
     }
 
+    if (cardId === "skip") {
+      this.addMessage(room, "system", null, "系统", `${this.teamLabel(game.currentTurn)} 选择了跳过回合`);
+      this.endTurn(room);
+      this.touchRoom(room);
+      this.broadcastRoom(room);
+      return { ok: true };
+    }
+
+    const card = game.cards.find((value) => value.id === cardId);
+    if (!card || card.revealed) {
+      return this.fail("这张卡不能被确认");
+    }
+
+    this.revealCard(room, cardId);
     this.touchRoom(room);
     this.broadcastRoom(room);
     return { ok: true };
@@ -796,8 +800,8 @@ export class GameService {
     }
 
     if (card.color === game.currentTurn) {
-      game.turnStage = "continue_vote";
-      this.addMessage(room, "system", null, "系统", `${this.teamLabel(game.currentTurn)} 猜中了自己的词，可以继续或放弃`);
+      game.turnStage = "members_guess";
+      this.addMessage(room, "system", null, "系统", `${this.teamLabel(game.currentTurn)} 猜中了自己的词，可以继续猜或跳过`);
       return;
     }
 
@@ -938,6 +942,8 @@ export class GameService {
     game.guess.confirmedCardId = null;
     game.guess.confirmationPlayerIds = [];
     game.guess.continueVotes = {};
+    game.guess.skipPreviewPlayerIds = [];
+    game.guess.skipPreviewNicknames = [];
   }
 
   private rebuildCardSelections(room: ServerRoom): void {
@@ -956,6 +962,14 @@ export class GameService {
         .map((playerId) => playerMap.get(playerId)?.nickname)
         .filter((value): value is string => Boolean(value));
     });
+
+    const skipPreviewPlayerIds = Object.entries(game.previewSelections)
+      .filter(([, selectedCardId]) => selectedCardId === "skip")
+      .map(([playerId]) => playerId);
+    game.guess.skipPreviewPlayerIds = skipPreviewPlayerIds;
+    game.guess.skipPreviewNicknames = skipPreviewPlayerIds
+      .map((playerId) => playerMap.get(playerId)?.nickname)
+      .filter((value): value is string => Boolean(value));
   }
 
   private handleDisconnect(socketId: string): void {
@@ -1189,7 +1203,9 @@ export class GameService {
       guess: {
         confirmedCardId: game.guess.confirmedCardId,
         confirmationPlayerIds: [...game.guess.confirmationPlayerIds],
-        continueVotes: { ...game.guess.continueVotes }
+        continueVotes: { ...game.guess.continueVotes },
+        skipPreviewPlayerIds: game.guess.skipPreviewPlayerIds ? [...game.guess.skipPreviewPlayerIds] : [],
+        skipPreviewNicknames: game.guess.skipPreviewNicknames ? [...game.guess.skipPreviewNicknames] : []
       },
       winner: game.winner,
       winnerReason: game.winnerReason,

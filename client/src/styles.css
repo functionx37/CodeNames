@@ -662,19 +662,49 @@ h2 {
   animation: flip 0.6s ease-in-out;
 }
 
-.preview,
-.secret-badge,
-.skull {
+.preview-tags {
   position: absolute;
+  top: -8px;
+  right: -8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  z-index: 10;
 }
 
-.preview {
-  left: 10px;
-  bottom: 10px;
-  font-size: 0.72rem;
-  max-width: calc(100% - 20px);
-  color: inherit;
-  opacity: 0.9;
+.preview-tag {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.tag-red {
+  background: var(--red);
+  color: white;
+}
+
+.tag-blue {
+  background: var(--blue);
+  color: white;
+}
+
+.board-card.preview-border-red {
+  border: 2px solid var(--red) !important;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
+}
+
+.board-card.preview-border-blue {
+  border: 2px solid var(--blue) !important;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4) !important;
+}
+
+.skull {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 
 .secret-badge {
@@ -698,9 +728,18 @@ h2 {
   background: #dad4cb;
 }
 
-.skull {
-  top: 10px;
-  right: 10px;
+.selected-skip {
+  border-color: var(--line);
+}
+.selected-skip.preview-border-red,
+.preview-border-red.secondary {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
+}
+.selected-skip.preview-border-blue,
+.preview-border-blue.secondary {
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4) !important;
 }
 
 .hint-box,

@@ -50,6 +50,8 @@ export interface GuessState {
   confirmedCardId: string | null;
   confirmationPlayerIds: string[];
   continueVotes: Record<string, ContinueVote>;
+  skipPreviewPlayerIds?: string[];
+  skipPreviewNicknames?: string[];
 }
 
 export interface DraftState {

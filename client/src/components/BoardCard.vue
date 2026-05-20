@@ -7,6 +7,7 @@ const props = defineProps<{
   selectable: boolean;
   selected: boolean;
   isCaptain: boolean;
+  currentTurn?: "red" | "blue" | null;
 }>();
 
 const emit = defineEmits<{
@@ -49,14 +50,17 @@ const cardClass = computed(() => {
 <template>
   <button
     class="board-card"
-    :class="[cardClass, { selectable, selected, 'flip-anim': isFlipping, 'is-captain': isCaptain }]"
+    :class="[cardClass, { selectable, selected, 'flip-anim': isFlipping, 'is-captain': isCaptain, [`preview-border-${currentTurn}`]: card.previewNicknames.length > 0 }]"
     :disabled="!selectable"
     @click="emit('select', card.id)"
   >
     <span class="word">{{ card.word }}</span>
     <span v-if="card.revealed && card.color === 'black'" class="skull">💀</span>
-    <span v-if="card.previewNicknames.length" class="preview">
-      {{ card.previewNicknames.join("、") }}
-    </span>
+    
+    <div v-if="card.previewNicknames.length" class="preview-tags">
+      <span v-for="name in card.previewNicknames" :key="name" class="preview-tag" :class="`tag-${currentTurn}`">
+        {{ name }}
+      </span>
+    </div>
   </button>
 </template>
