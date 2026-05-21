@@ -114,7 +114,7 @@ upload_release() {
 
     ssh "$remote" "mkdir -p '$REMOTE_TMP_DIR'"
     rsync -az --delete "$STAGE_DIR"/ "$remote":"$REMOTE_TMP_DIR"/
-    ssh -t "$remote" "sudo mkdir -p '$REMOTE_DIR' && sudo rsync -a --delete '$REMOTE_TMP_DIR/' '$REMOTE_DIR/' && sudo chown -R \$(id -un):\$(id -gn) '$REMOTE_DIR'"
+    ssh -t "$remote" "sudo mkdir -p '$REMOTE_DIR' && sudo rsync -a --delete --filter='protect /deploy/.runtime/***' '$REMOTE_TMP_DIR/' '$REMOTE_DIR/' && sudo chown -R \$(id -un):\$(id -gn) '$REMOTE_DIR'"
 
     echo "Release uploaded to: $remote:$REMOTE_DIR"
     echo "Next commands on server:"

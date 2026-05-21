@@ -42,6 +42,20 @@ ensure_runtime_dir() {
     mkdir -p "$RUNTIME_DIR"
 }
 
+find_port_pid() {
+    local pid=""
+
+    if command -v lsof >/dev/null 2>&1; then
+        pid=$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)
+    elif command -v ss >/dev/null 2>&1; then
+        pid=$(ss -ltnp 2>/dev/null | sed -nE "s/.*:${PORT}[[:space:]].*pid=([0-9]+).*/\1/p" | head -n 1 || true)
+    fi
+
+    if [[ -n "${pid:-}" ]]; then
+        printf '%s\n' "$pid"
+    fi
+}
+
 read_pid() {
     if [[ -f "$PID_FILE" ]]; then
         tr -d '[:space:]' < "$PID_FILE"
@@ -58,6 +72,31 @@ cleanup_stale_pid() {
     if [[ -f "$PID_FILE" ]] && ! is_running; then
         rm -f "$PID_FILE"
     fi
+}
+
+stop_pid() {
+    local pid="$1"
+
+    if [[ -z "${pid:-}" ]] || ! kill -0 "$pid" 2>/dev/null; then
+        return 1
+    fi
+
+    echo "Stopping Codenames. PID: $pid"
+    kill "$pid"
+
+    for _ in {1..10}; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            rm -f "$PID_FILE"
+            echo "Codenames stopped."
+            return 0
+        fi
+        sleep 1
+    done
+
+    echo "Process did not exit after 10 seconds, forcing shutdown..."
+    kill -9 "$pid" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    echo "Codenames stopped."
 }
 
 ensure_node() {
@@ -359,6 +398,15 @@ start_service() {
         exit 0
     fi
 
+    local port_pid
+    port_pid=$(find_port_pid || true)
+    if [[ -n "${port_pid:-}" ]]; then
+        echo "Port ${PORT} is already in use by PID: $port_pid" >&2
+        echo "An older Codenames process may still be running without a PID file." >&2
+        echo "Run ./deploy/codenames-deploy.sh stop first, then try again." >&2
+        exit 1
+    fi
+
     ensure_node
     ensure_release_layout
 
@@ -390,6 +438,14 @@ stop_service() {
     cleanup_stale_pid
 
     if ! [[ -f "$PID_FILE" ]]; then
+        local port_pid
+        port_pid=$(find_port_pid || true)
+        if [[ -n "${port_pid:-}" ]]; then
+            echo "PID file missing. Falling back to the process listening on port ${PORT}."
+            stop_pid "$port_pid"
+            return
+        fi
+
         echo "Codenames is not running."
         exit 0
     fi
@@ -399,26 +455,19 @@ stop_service() {
 
     if [[ -z "${pid:-}" ]] || ! kill -0 "$pid" 2>/dev/null; then
         rm -f "$PID_FILE"
+        local port_pid
+        port_pid=$(find_port_pid || true)
+        if [[ -n "${port_pid:-}" ]]; then
+            echo "PID file was stale. Falling back to the process listening on port ${PORT}."
+            stop_pid "$port_pid"
+            return
+        fi
+
         echo "Codenames is not running."
         exit 0
     fi
 
-    echo "Stopping Codenames. PID: $pid"
-    kill "$pid"
-
-    for _ in {1..10}; do
-        if ! kill -0 "$pid" 2>/dev/null; then
-            rm -f "$PID_FILE"
-            echo "Codenames stopped."
-            return
-        fi
-        sleep 1
-    done
-
-    echo "Process did not exit after 10 seconds, forcing shutdown..."
-    kill -9 "$pid" 2>/dev/null || true
-    rm -f "$PID_FILE"
-    echo "Codenames stopped."
+    stop_pid "$pid"
 }
 
 show_status() {
@@ -431,6 +480,16 @@ show_status() {
         echo "Log: $LOG_FILE"
         echo "Static directory: $PROJECT_DIR/dist/client"
     else
+        local port_pid
+        port_pid=$(find_port_pid || true)
+        if [[ -n "${port_pid:-}" ]]; then
+            echo "Codenames appears to be running, but the PID file is missing."
+            echo "Port listener PID: $port_pid"
+            echo "Log: $LOG_FILE"
+            echo "Static directory: $PROJECT_DIR/dist/client"
+            return
+        fi
+
         echo "Codenames is not running."
     fi
 }
