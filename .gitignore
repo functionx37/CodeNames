@@ -19,3 +19,8 @@ coverage/
 Thumbs.db
 .idea/
 .vscode/
+
+# deploy
+
+deploy/.release/
+deploy/.runtime/
